@@ -1,0 +1,49 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Patient Information Logger",
+    "version": "1.0.0",
+    "description": "AgentCore-enabled patient information logging system"
+  },
+  "paths": {
+    "/patient": {
+      "post": {
+        "operationId": "logPatientInfo",
+        "description": "Log patient information to the database using AgentCore",
+        "parameters": [
+          {
+            "name": "first_name",
+            "in": "query",
+            "description": "Patient's first name",
+            "required": true,
+            "schema": {"type": "string"}
+          },
+          {
+            "name": "last_name",
+            "in": "query",
+            "description": "Patient's last name",
+            "required": true,
+            "schema": {"type": "string"}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully logged patient information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "patient_id": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
