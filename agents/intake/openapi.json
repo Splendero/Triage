@@ -3,40 +3,118 @@
   "info": {
     "title": "Patient Information Logger",
     "version": "1.0.0",
-    "description": "AgentCore-enabled patient information logging system"
+    "description": "API for logging comprehensive patient information."
   },
   "paths": {
     "/patient": {
       "post": {
         "operationId": "logPatientInfo",
-        "description": "Log patient information to the database using AgentCore",
-        "parameters": [
-          {
-            "name": "first_name",
-            "in": "query",
-            "description": "Patient's first name",
-            "required": true,
-            "schema": {"type": "string"}
-          },
-          {
-            "name": "last_name",
-            "in": "query",
-            "description": "Patient's last name",
-            "required": true,
-            "schema": {"type": "string"}
+        "description": "IMPORTANT: Only call this after gathering ALL required information and confirmation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["first_name", "last_name", "isDone"],
+                "properties": {
+                  "first_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Patient's first name"
+                  },
+                  "last_name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Patient's last name"
+                  },
+                  "date_of_birth": {
+                    "type": "string",
+                    "description": "Patient's date of birth (YYYY-MM-DD)"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": ["male", "female", "other", "prefer_not_to_say"],
+                    "description": "Patient's gender"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "Patient's full address"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Patient's phone number"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Patient's email address"
+                  },
+                  "medical_id": {
+                    "type": "string",
+                    "description": "Patient's medical ID number"
+                  },
+                  "allergies": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of patient's allergies"
+                  },
+                  "medications": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of current medications"
+                  },
+                  "medical_history": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of medical history items"
+                  },
+                  "symptoms": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Current symptoms"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["active", "inactive", "pending"],
+                    "default": "active",
+                    "description": "Patient's current status"
+                  },
+                  "isDone": {
+                    "type": "boolean",
+                    "description": "Must be true and only after explicit confirmation from user",
+                    "enum": [true]
+                  }
+                }
+              }
+            }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "Successfully logged patient information",
+            "description": "Successfully saved patient information",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {"type": "boolean"},
-                    "message": {"type": "string"},
-                    "patient_id": {"type": "string"}
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "patient_id": {
+                      "type": "string"
+                    }
                   }
                 }
               }

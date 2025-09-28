@@ -1,83 +1,87 @@
 import json
 import boto3
 from datetime import datetime
+import uuid
+
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+table = dynamodb.Table('PatientInformation')
+
+REQUIRED_FIELDS = ['first_name', 'last_name', 'symptoms', 'medical_id']
+OPTIONAL_FIELDS = ['date_of_birth']
 
 def lambda_handler(event, context):
     try:
-        # Print the incoming event for debugging
-        print("Received event:", json.dumps(event))
+        print("=== INPUT ===")
+        print("FULL BEDROCK EVENT:")
+        print(json.dumps(event, indent=2))
         
-        # Extract parameters from the request body
-        try:
-            # First try to parse from requestBody if it exists
-            if 'requestBody' in event:
-                body = json.loads(event['requestBody'])
-                first_name = body.get('first_name', '')
-                last_name = body.get('last_name', '')
-            # Fallback to parameters if requestBody doesn't exist
-            else:
-                parameters = event.get('parameters', {})
-                first_name = parameters.get('first_name', '')
-                last_name = parameters.get('last_name', '')
-        except json.JSONDecodeError:
-            print("Error decoding request body")
-            first_name = ''
-            last_name = ''
+        # Get values from event
+        action_group = event['actionGroup']
+        function = event['function']
+        message_version = event.get('messageVersion', '1.0')
+        session_attributes = event.get('sessionAttributes', {})
+        prompt_session_attributes = event.get('promptSessionAttributes', {})
+        parameters = event.get('parameters', [])
+
+        # Extract parameters
+        patient_data = {}
+        for param in parameters:
+            patient_data[param['name']] = param['value']
         
-        print(f"Extracted names: first_name='{first_name}', last_name='{last_name}'")
+        # Validate required fields
+        missing_fields = [field for field in REQUIRED_FIELDS if field not in patient_data]
+        if missing_fields:
+            raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
+
+        # Add system fields
+        patient_data['patient_id'] = f"patient_{str(uuid.uuid4())}"
+        patient_data['created_at'] = datetime.now().isoformat()
         
-        # Generate patient ID
-        patient_id = f"patient_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Create patient data
-        patient_data = {
-            'patient_id': patient_id,
-            'first_name': first_name,
-            'last_name': last_name,
-            'created_at': datetime.now().isoformat()
-        }
-        
-        # Initialize DynamoDB
-        dynamodb = boto3.resource('dynamodb')
-        table = dynamodb.Table('PatientInformation')
-        
-        # Save to DynamoDB
+        print(f"Saving patient data: {json.dumps(patient_data)}")
         table.put_item(Item=patient_data)
-        print(f"Saved to DynamoDB: {json.dumps(patient_data)}")
-        
-        # Create response in the format AgentCore expects
-        response = {
-            "messageVersion": "1.0",
+
+        # Return exact format for function-based action groups
+        return {
+            "messageVersion": message_version,
             "response": {
-                "actionGroup": "patient-data-actions",
-                "apiPath": "/patient",
-                "httpMethod": "POST",
-                "httpStatusCode": 200,
-                "responseBody": json.dumps({
-                    "success": True,
-                    "message": f"Successfully logged patient: {first_name} {last_name}",
-                    "patient_id": patient_id
-                })
-            }
+                "actionGroup": action_group,
+                "function": function,
+                "functionResponse": {
+                    "responseBody": {
+                        "TEXT": {  # Only TEXT is supported currently
+                            "body": json.dumps({
+                                "success": True,
+                                "message": f"Successfully logged patient: {patient_data.get('first_name', '')} {patient_data.get('last_name', '')}",
+                                "patient_id": patient_data['patient_id']
+                            })
+                        }
+                    }
+                }
+            },
+            "sessionAttributes": session_attributes,
+            "promptSessionAttributes": prompt_session_attributes
         }
-        
-        print("Sending response:", json.dumps(response))
-        return response
-        
+
     except Exception as e:
-        print("Error:", str(e))
-        error_response = {
+        print(f"=== ERROR ===")
+        print(f"Error: {str(e)}")
+        return {
             "messageVersion": "1.0",
             "response": {
-                "actionGroup": "patient-data-actions",
-                "apiPath": "/patient",
-                "httpMethod": "POST",
-                "httpStatusCode": 500,
-                "responseBody": json.dumps({
-                    "success": False,
-                    "error": str(e)
-                })
-            }
+                "actionGroup": action_group if 'action_group' in locals() else "patientLogging",
+                "function": function if 'function' in locals() else "log-test-1",
+                "functionResponse": {
+                    "responseState": "FAILURE",  # Tell Bedrock this was a failure
+                    "responseBody": {
+                        "TEXT": {
+                            "body": json.dumps({
+                                "success": False,
+                                "error": str(e)
+                            })
+                        }
+                    }
+                }
+            },
+            "sessionAttributes": session_attributes if 'session_attributes' in locals() else {},
+            "promptSessionAttributes": prompt_session_attributes if 'prompt_session_attributes' in locals() else {}
         }
-        print("Sending error response:", json.dumps(error_response))
-        return error_response
